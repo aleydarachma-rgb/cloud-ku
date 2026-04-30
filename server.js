@@ -20,7 +20,8 @@ const db = mysql.createConnection({
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(session({ secret: 'rahasia-cloud', resave: false, saveUninitialized: true }));
-app.use(express.static('public')); // Untuk file CSS/Gambar
+app.use(express.static('public')); 
+app.use('/uploads', express.static('uploads')); // Agar file yang diupload bisa diakses/dilihat
 
 // Konfigurasi Multer (Upload File)
 const storage = multer.diskStorage({
@@ -36,12 +37,10 @@ if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
 
 // --- ROUTES ---
 
-// Halaman Login (Tampilan awal)
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'login.html'));
 });
 
-// Proses Login
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
     if (username === 'admin' && password === 'admin') {
@@ -52,7 +51,6 @@ app.post('/login', (req, res) => {
     }
 });
 
-// Halaman Dashboard (Hanya bisa dibuka jika sudah login)
 app.get('/dashboard', (req, res) => {
     if (!req.session.loggedIn) return res.redirect('/');
     res.sendFile(path.join(__dirname, 'dashboard.html'));
@@ -75,9 +73,36 @@ app.get('/api/notes', (req, res) => {
     });
 });
 
+// --- FITUR BARU: HAPUS CATATAN ---
+app.delete('/api/notes/:id', (req, res) => {
+    const noteId = req.params.id;
+    db.query("DELETE FROM notes WHERE id = ?", [noteId], (err) => {
+        if (err) return res.status(500).send(err);
+        res.json({ message: 'Catatan dihapus!' });
+    });
+});
+
 // API: Upload File
 app.post('/upload', upload.single('myFile'), (req, res) => {
     res.send('<h3>File Berhasil Terunggah ke VPS!</h3><a href="/dashboard">Kembali ke Dashboard</a>');
+});
+
+// --- FITUR BARU: LIHAT DAFTAR FILE & HAPUS FILE ---
+app.get('/api/files', (req, res) => {
+    fs.readdir('./uploads', (err, files) => {
+        if (err) return res.status(500).send(err);
+        res.json(files);
+    });
+});
+
+app.delete('/api/files/:name', (req, res) => {
+    const fileName = req.params.name;
+    const filePath = path.join(__dirname, 'uploads', fileName);
+    
+    fs.unlink(filePath, (err) => {
+        if (err) return res.status(500).send(err);
+        res.json({ message: 'File berhasil dihapus dari VPS!' });
+    });
 });
 
 app.listen(3000, () => console.log('Server running on port 3000'));

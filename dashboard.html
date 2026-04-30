@@ -14,37 +14,17 @@
         input, textarea { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; }
         button { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; transition: 0.3s; }
         button:hover { background: #2980b9; }
-        .note-item { border-bottom: 1px solid #eee; padding: 15px 0; }
+        .note-item, .file-item { border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
         .note-item h4 { margin: 0; color: #e67e22; }
-    /* Media Query untuk HP */
-    @media (max-width: 768px) {
-       body {
-        flex-direction: column; /* Sidebar jadi di atas, bukan di samping */
-    }
+        .btn-delete { background: #e74c3c; padding: 5px 10px; font-size: 12px; }
+        .btn-delete:hover { background: #c0392b; }
 
-    .sidebar {
-        width: 100%;
-        height: auto;
-        position: relative;
-        padding: 10px;
-        box-sizing: border-box;
-    }
-
-    .main-content {
-        margin-left: 0; /* Hilangkan jarak samping */
-        padding: 15px;
-        width: 100%;
-        box-sizing: border-box;
-    }
-
-    .card {
-        padding: 15px;
-    }
-
-    h1 {
-        font-size: 20px; /* Ukuran tulisan diperkecil biar gak meluber */
-    }
-}
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; position: relative; padding: 10px; }
+            .main-content { margin-left: 0; padding: 15px; }
+            h1 { font-size: 20px; }
+        }
     </style>
 </head>
 <body>
@@ -61,11 +41,13 @@
 
         <div class="card">
             <h2>Cloud Storage (IaaS)</h2>
-            <p>Upload dokumen langsung ke direktori <code>/uploads</code> di VPS.</p>
             <form action="/upload" method="POST" enctype="multipart/form-data">
                 <input type="file" name="myFile" required>
                 <button type="submit">Upload to VPS</button>
             </form>
+            <hr>
+            <h3>Files in VPS</h3>
+            <div id="fileList">Loading files...</div>
         </div>
 
         <div class="card">
@@ -82,35 +64,70 @@
     </div>
 
     <script>
-        // Fungsi Simpan Catatan via API
+        // --- FITUR CATATAN ---
         async function saveNote() {
             const title = document.getElementById('noteTitle').value;
             const content = document.getElementById('noteContent').value;
+            if(!title || !content) return alert('Isi dulu judul dan kontennya!');
             
             await fetch('/api/notes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title, content })
             });
-            
-            alert('Tersimpan!');
+            alert('Catatan Tersimpan!');
             location.reload();
         }
 
-        // Fungsi Load Catatan
         async function loadNotes() {
             const res = await fetch('/api/notes');
             const data = await res.json();
             const container = document.getElementById('notesContainer');
             container.innerHTML = data.map(n => `
                 <div class="note-item">
-                    <h4>${n.title}</h4>
-                    <p>${n.content}</p>
-                    <small>${new Date(n.created_at).toLocaleString()}</small>
+                    <div>
+                        <h4>${n.title}</h4>
+                        <p>${n.content}</p>
+                        <small>${new Date(n.created_at).toLocaleString()}</small>
+                    </div>
+                    <button class="btn-delete" onclick="deleteNote(${n.id})">Hapus</button>
                 </div>
             `).join('');
         }
+
+        async function deleteNote(id) {
+            if(confirm('Yakin ingin menghapus catatan ini?')) {
+                await fetch(`/api/notes/${id}`, { method: 'DELETE' });
+                loadNotes();
+            }
+        }
+
+        // --- FITUR FILE ---
+        async function loadFiles() {
+            const res = await fetch('/api/files');
+            const files = await res.json();
+            const container = document.getElementById('fileList');
+            if(files.length === 0) container.innerHTML = "<p>Belum ada file.</p>";
+            else {
+                container.innerHTML = files.map(file => `
+                    <div class="file-item">
+                        <span>${file}</span>
+                        <button class="btn-delete" onclick="deleteFile('${file}')">Hapus</button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        async function deleteFile(fileName) {
+            if(confirm('Hapus file ' + fileName + ' dari VPS?')) {
+                await fetch(`/api/files/${fileName}`, { method: 'DELETE' });
+                loadFiles();
+            }
+        }
+
+        // Jalankan saat startup
         loadNotes();
+        loadFiles();
     </script>
 </body>
 </html>
