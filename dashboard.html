@@ -1,11 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    </head>
-<body>
-    <script>
-        // 1. Fungsi Load Catatan
-        async function loadNotes() {
+<script>
+    // 1. Fungsi Load Catatan
+    async function loadNotes() {
+        try {
             const res = await fetch('/api/notes');
             const data = await res.json();
             const container = document.getElementById('notesContainer');
@@ -19,62 +15,59 @@
                     <button class="btn-delete" onclick="deleteNote(${n.id})">Hapus</button>
                 </div>
             `).join('');
-        }
+        } catch (e) { console.error(e); }
+    }
 
-        // 2. Fungsi Simpan Catatan
-        async function saveNote() {
-            const title = document.getElementById('noteTitle').value;
-            const content = document.getElementById('noteContent').value;
-            if (!title || !content) return alert('Isi dulu judul dan kontennya!');
-            
-            await fetch('/api/notes', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title, content })
-            });
-            document.getElementById('noteTitle').value = '';
-            document.getElementById('noteContent').value = '';
+    // 2. Fungsi Simpan Catatan
+    async function saveNote() {
+        const title = document.getElementById('noteTitle').value;
+        const content = document.getElementById('noteContent').value;
+        if (!title || !content) return alert('Isi judul dan konten!');
+        
+        await fetch('/api/notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, content })
+        });
+        document.getElementById('noteTitle').value = '';
+        document.getElementById('noteContent').value = '';
+        loadNotes();
+    }
+
+    // 3. Fungsi Hapus Catatan
+    async function deleteNote(id) {
+        if(confirm('Hapus catatan ini?')) {
+            await fetch(`/api/notes/${id}`, { method: 'DELETE' });
             loadNotes();
         }
+    }
 
-        // 3. Fungsi Hapus Catatan
-        async function deleteNote(id) {
-            if(confirm('Hapus catatan ini?')) {
-                await fetch(`/api/notes/${id}`, { method: 'DELETE' });
-                loadNotes();
-            }
-        }
-
-        // 4. Fungsi Load Files (Cloud Storage)
-        async function loadFiles() {
+    // 4. Fungsi Load Files
+    async function loadFiles() {
+        try {
             const res = await fetch('/api/files');
             const files = await res.json();
             const container = document.getElementById('fileList');
-            if(files.length === 0) {
-                container.innerHTML = "<p>Belum ada file.</p>";
-            } else {
-                container.innerHTML = files.map(file => `
-                    <div class="file-item">
-                        <span>${file}</span>
-                        <button class="btn-delete" onclick="deleteFile('${file}')">Hapus</button>
-                    </div>
-                `).join('');
-            }
-        }
+            container.innerHTML = files.map(file => `
+                <div class="file-item">
+                    <span>${file}</span>
+                    <button class="btn-delete" onclick="deleteFile('${file}')">Hapus</button>
+                </div>
+            `).join('');
+        } catch (e) { console.error(e); }
+    }
 
-        // 5. Fungsi Hapus File
-        async function deleteFile(name) {
-            if(confirm('Hapus file ' + name + ' dari VPS?')) {
-                await fetch(`/api/files/${name}`, { method: 'DELETE' });
-                loadFiles();
-            }
-        }
-
-        // JALANKAN SEMUA SAAT HALAMAN DIBUKA
-        window.onload = () => {
-            loadNotes();
+    // 5. Fungsi Hapus File
+    async function deleteFile(name) {
+        if(confirm('Hapus file ' + name + '?')) {
+            await fetch(`/api/files/${name}`, { method: 'DELETE' });
             loadFiles();
-        };
-    </script>
-</body>
-</html>
+        }
+    }
+
+    // JALANKAN SEMUA SAAT HALAMAN DIBUKA
+    window.onload = () => {
+        loadNotes();
+        loadFiles();
+    };
+</script>
