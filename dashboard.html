@@ -14,6 +14,11 @@
         button { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; }
         .note-item, .file-item { border-bottom: 1px solid #eee; padding: 10px 0; display: flex; justify-content: space-between; align-items: center; }
         .btn-delete { background: #e74c3c; padding: 5px 10px; font-size: 12px; }
+        
+        /* Style tambahan untuk preview gambar */
+        .preview-img { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 15px; border: 1px solid #ddd; }
+        .file-info { display: flex; align-items: center; }
+
         @media (max-width: 768px) {
             body { flex-direction: column; }
             .sidebar { width: 100%; height: auto; position: relative; }
@@ -51,6 +56,7 @@
     </div>
 
     <script>
+        // --- FITUR CATATAN ---
         async function loadNotes() {
             const res = await fetch('/api/notes');
             const data = await res.json();
@@ -83,15 +89,30 @@
             }
         }
 
+        // --- FITUR FILE & PREVIEW ---
         async function loadFiles() {
             const res = await fetch('/api/files');
             const files = await res.json();
-            document.getElementById('fileList').innerHTML = files.map(f => `
-                <div class="file-item">
-                    <span>${f}</span>
-                    <button class="btn-delete" onclick="deleteFile('${f}')">Hapus</button>
-                </div>
-            `).join('') || 'Folder kosong.';
+            const container = document.getElementById('fileList');
+            
+            container.innerHTML = files.map(f => {
+                // Deteksi jika file adalah gambar
+                const isImage = /\.(jpe?g|png|gif|webp)$/i.test(f);
+                return `
+                    <div class="file-item">
+                        <div class="file-info">
+                            ${isImage ? 
+                                `<img src="/uploads/${f}" class="preview-img" alt="preview">` : 
+                                `<div class="preview-img" style="display:flex;align-items:center;justify-content:center;background:#eee;font-size:10px;">FILE</div>`
+                            }
+                            <div>
+                                <a href="/uploads/${f}" target="_blank" style="text-decoration:none; color:#2c3e50; font-weight:600;">${f}</a>
+                            </div>
+                        </div>
+                        <button class="btn-delete" onclick="deleteFile('${f}')">Hapus</button>
+                    </div>
+                `;
+            }).join('') || 'Folder kosong.';
         }
 
         async function deleteFile(name) {
