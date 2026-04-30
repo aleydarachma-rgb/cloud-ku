@@ -1,90 +1,80 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | Cloud-Ku Private Storage</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; background: #f4f7f6; margin: 0; display: flex; }
-        .sidebar { width: 250px; background: #2c3e50; color: white; height: 100vh; padding: 20px; position: fixed; }
-        .main-content { margin-left: 290px; padding: 40px; width: 100%; }
-        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 30px; }
-        h1, h2 { color: #2c3e50; }
-        input, textarea { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; }
-        button { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; transition: 0.3s; }
-        button:hover { background: #2980b9; }
-        .note-item, .file-item { border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
-        .note-item h4 { margin: 0; color: #e67e22; }
-        .btn-delete { background: #e74c3c; padding: 5px 10px; font-size: 12px; }
-        .btn-delete:hover { background: #c0392b; }
-
-        @media (max-width: 768px) {
-            body { flex-direction: column; }
-            .sidebar { width: 100%; height: auto; position: relative; padding: 10px; }
-            .main-content { margin-left: 0; padding: 15px; }
-            h1 { font-size: 20px; }
-        }
-    </style>
-</head>
+    </head>
 <body>
-    <div class="sidebar">
-        <h2>Cloud-Ku</h2>
-        <p>VPS Private Server</p>
-        <hr>
-        <p style="font-size: 12px; color: #bdc3c7;">Server Status: <b>Online</b></p>
-        <a href="/" style="color: #ecf0f1; text-decoration: none;">Logout</a>
-    </div>
-
-    <div class="main-content">
-        <h1>Welcome, System Admin</h1>
-
-        <div class="card">
-            <h2>Cloud Storage (IaaS)</h2>
-            <form action="/upload" method="POST" enctype="multipart/form-data">
-                <input type="file" name="myFile" required>
-                <button type="submit">Upload to VPS</button>
-            </form>
-            <hr>
-            <h3>Files in VPS</h3>
-            <div id="fileList">Loading files...</div>
-        </div>
-
-        <div class="card">
-            <h2>Private Notes</h2>
-            <input type="text" id="noteTitle" placeholder="Judul Catatan">
-            <textarea id="noteContent" rows="4" placeholder="Tulis sesuatu..."></textarea>
-            <button onclick="saveNote()">Simpan ke Database</button>
-        </div>
-
-        <div class="card">
-            <h2>Your Saved Notes</h2>
-            <div id="notesContainer">Loading notes...</div>
-        </div>
-    </div>
-
     <script>
-       // Fungsi Load Files
-async function loadFiles() {
-    const res = await fetch('/api/files');
-    const files = await res.json();
-    const container = document.getElementById('fileList'); // Pastikan ada div id="fileList"
-    container.innerHTML = files.map(file => `
-        <div class="file-item" style="display:flex; justify-content:space-between; margin-bottom:10px;">
-            <span>${file}</span>
-            <button onclick="deleteFile('${file}')" style="background:red">Hapus</button>
-        </div>
-    `).join('');
-}
+        // 1. Fungsi Load Catatan
+        async function loadNotes() {
+            const res = await fetch('/api/notes');
+            const data = await res.json();
+            const container = document.getElementById('notesContainer');
+            container.innerHTML = data.map(n => `
+                <div class="note-item">
+                    <div>
+                        <h4>${n.title}</h4>
+                        <p>${n.content}</p>
+                        <small>${new Date(n.created_at).toLocaleString()}</small>
+                    </div>
+                    <button class="btn-delete" onclick="deleteNote(${n.id})">Hapus</button>
+                </div>
+            `).join('');
+        }
 
-async function deleteFile(name) {
-    if(confirm('Hapus file ini?')) {
-        await fetch(`/api/files/${name}`, { method: 'DELETE' });
-        loadFiles();
-    }
-}
-// Panggil loadFiles() di bawah loadNotes()
-    </script> 
+        // 2. Fungsi Simpan Catatan
+        async function saveNote() {
+            const title = document.getElementById('noteTitle').value;
+            const content = document.getElementById('noteContent').value;
+            if (!title || !content) return alert('Isi dulu judul dan kontennya!');
+            
+            await fetch('/api/notes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, content })
+            });
+            document.getElementById('noteTitle').value = '';
+            document.getElementById('noteContent').value = '';
+            loadNotes();
+        }
 
+        // 3. Fungsi Hapus Catatan
+        async function deleteNote(id) {
+            if(confirm('Hapus catatan ini?')) {
+                await fetch(`/api/notes/${id}`, { method: 'DELETE' });
+                loadNotes();
+            }
+        }
+
+        // 4. Fungsi Load Files (Cloud Storage)
+        async function loadFiles() {
+            const res = await fetch('/api/files');
+            const files = await res.json();
+            const container = document.getElementById('fileList');
+            if(files.length === 0) {
+                container.innerHTML = "<p>Belum ada file.</p>";
+            } else {
+                container.innerHTML = files.map(file => `
+                    <div class="file-item">
+                        <span>${file}</span>
+                        <button class="btn-delete" onclick="deleteFile('${file}')">Hapus</button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // 5. Fungsi Hapus File
+        async function deleteFile(name) {
+            if(confirm('Hapus file ' + name + ' dari VPS?')) {
+                await fetch(`/api/files/${name}`, { method: 'DELETE' });
+                loadFiles();
+            }
+        }
+
+        // JALANKAN SEMUA SAAT HALAMAN DIBUKA
+        window.onload = () => {
+            loadNotes();
+            loadFiles();
+        };
+    </script>
 </body>
 </html>
