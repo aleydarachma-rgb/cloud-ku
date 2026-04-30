@@ -1,3 +1,4 @@
+require('dotenv').config(); 
 const express = require('express');
 const mysql = require('mysql2');
 const bodyParser = require('body-parser');
@@ -8,22 +9,28 @@ const fs = require('fs');
 
 const app = express();
 
-// Konfigurasi Database
+// 1. Database Connection (Menggunakan .env)
 const db = mysql.createConnection({
     host: 'localhost',
     user: 'root',
-    password: 'password_vps_kamu', // <--- SAMAKAN DENGAN DI VPS
+    password: process.env.DB_PASSWORD, 
     database: 'db_cloudku'
 });
 
-// Middleware
+// 2. Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-app.use(session({ secret: 'rahasia-cloud', resave: false, saveUninitialized: true }));
-app.use(express.static('public')); 
-app.use('/uploads', express.static('uploads')); // Agar file yang diupload bisa diakses/dilihat
+app.use(session({ 
+    secret: process.env.SESSION_SECRET || 'rahasia-cloud', 
+    resave: false, 
+    saveUninitialized: true 
+}));
 
-// Konfigurasi Multer (Upload File)
+// Agar file di folder uploads bisa dibuka di browser (Penting untuk Preview)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.static('public')); 
+
+// 3. Konfigurasi Simpan File (Multer)
 const storage = multer.diskStorage({
     destination: './uploads/',
     filename: (req, file, cb) => {
@@ -32,7 +39,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// Pastikan folder uploads ada
 if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
 
 // --- ROUTES ---
@@ -56,7 +62,8 @@ app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'dashboard.html'));
 });
 
-// API: Simpan Catatan
+// --- API CATATAN ---
+
 app.post('/api/notes', (req, res) => {
     const { title, content } = req.body;
     db.query("INSERT INTO notes (title, content) VALUES (?, ?)", [title, content], (err) => {
@@ -65,7 +72,6 @@ app.post('/api/notes', (req, res) => {
     });
 });
 
-// API: Ambil Semua Catatan
 app.get('/api/notes', (req, res) => {
     db.query("SELECT * FROM notes ORDER BY created_at DESC", (err, results) => {
         if (err) return res.status(500).send(err);
@@ -73,7 +79,6 @@ app.get('/api/notes', (req, res) => {
     });
 });
 
-// --- FITUR BARU: HAPUS CATATAN ---
 app.delete('/api/notes/:id', (req, res) => {
     const noteId = req.params.id;
     db.query("DELETE FROM notes WHERE id = ?", [noteId], (err) => {
@@ -82,26 +87,29 @@ app.delete('/api/notes/:id', (req, res) => {
     });
 });
 
-// API: Upload File
+// --- API CLOUD STORAGE & PREVIEW ---
+
 app.post('/upload', upload.single('myFile'), (req, res) => {
-    res.send('<h3>File Berhasil Terunggah ke VPS!</h3><a href="/dashboard">Kembali ke Dashboard</a>');
+    res.send('<h3>File Berhasil Terunggah!</h3><a href="/dashboard">Kembali</a>');
 });
 
-// --- FITUR BARU: LIHAT DAFTAR FILE & HAPUS FILE ---
+// Mengambil daftar file untuk ditampilkan di Dashboard
 app.get('/api/files', (req, res) => {
     fs.readdir('./uploads', (err, files) => {
         if (err) return res.status(500).send(err);
+        // Kirim daftar file dalam bentuk array
         res.json(files);
     });
 });
 
+// Menghapus file fisik dari folder uploads
 app.delete('/api/files/:name', (req, res) => {
     const fileName = req.params.name;
     const filePath = path.join(__dirname, 'uploads', fileName);
     
     fs.unlink(filePath, (err) => {
-        if (err) return res.status(500).send(err);
-        res.json({ message: 'File berhasil dihapus dari VPS!' });
+        if (err) return res.status(500).json({ error: "Gagal hapus file di server" });
+        res.json({ message: 'File berhasil dihapus!' });
     });
 });
 

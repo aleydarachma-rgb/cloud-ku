@@ -64,70 +64,27 @@
     </div>
 
     <script>
-        // --- FITUR CATATAN ---
-        async function saveNote() {
-            const title = document.getElementById('noteTitle').value;
-            const content = document.getElementById('noteContent').value;
-            if(!title || !content) return alert('Isi dulu judul dan kontennya!');
-            
-            await fetch('/api/notes', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title, content })
-            });
-            alert('Catatan Tersimpan!');
-            location.reload();
-        }
+       // Fungsi Load Files
+async function loadFiles() {
+    const res = await fetch('/api/files');
+    const files = await res.json();
+    const container = document.getElementById('fileList'); // Pastikan ada div id="fileList"
+    container.innerHTML = files.map(file => `
+        <div class="file-item" style="display:flex; justify-content:space-between; margin-bottom:10px;">
+            <span>${file}</span>
+            <button onclick="deleteFile('${file}')" style="background:red">Hapus</button>
+        </div>
+    `).join('');
+}
 
-        async function loadNotes() {
-            const res = await fetch('/api/notes');
-            const data = await res.json();
-            const container = document.getElementById('notesContainer');
-            container.innerHTML = data.map(n => `
-                <div class="note-item">
-                    <div>
-                        <h4>${n.title}</h4>
-                        <p>${n.content}</p>
-                        <small>${new Date(n.created_at).toLocaleString()}</small>
-                    </div>
-                    <button class="btn-delete" onclick="deleteNote(${n.id})">Hapus</button>
-                </div>
-            `).join('');
-        }
-
-        async function deleteNote(id) {
-            if(confirm('Yakin ingin menghapus catatan ini?')) {
-                await fetch(`/api/notes/${id}`, { method: 'DELETE' });
-                loadNotes();
-            }
-        }
-
-        // --- FITUR FILE ---
-        async function loadFiles() {
-            const res = await fetch('/api/files');
-            const files = await res.json();
-            const container = document.getElementById('fileList');
-            if(files.length === 0) container.innerHTML = "<p>Belum ada file.</p>";
-            else {
-                container.innerHTML = files.map(file => `
-                    <div class="file-item">
-                        <span>${file}</span>
-                        <button class="btn-delete" onclick="deleteFile('${file}')">Hapus</button>
-                    </div>
-                `).join('');
-            }
-        }
-
-        async function deleteFile(fileName) {
-            if(confirm('Hapus file ' + fileName + ' dari VPS?')) {
-                await fetch(`/api/files/${fileName}`, { method: 'DELETE' });
-                loadFiles();
-            }
-        }
-
-        // Jalankan saat startup
-        loadNotes();
+async function deleteFile(name) {
+    if(confirm('Hapus file ini?')) {
+        await fetch(`/api/files/${name}`, { method: 'DELETE' });
         loadFiles();
-    </script>
+    }
+}
+// Panggil loadFiles() di bawah loadNotes()
+    </script> 
+
 </body>
 </html>
