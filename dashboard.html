@@ -5,15 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard | Cloud-Ku</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { font-family: 'Inter', sans-serif; background: #f4f7f6; margin: 0; display: flex; }
         .sidebar { width: 250px; background: #2c3e50; color: white; height: 100vh; padding: 20px; position: fixed; }
         .main-content { margin-left: 290px; padding: 40px; width: 100%; }
         .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 30px; }
         input, textarea { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
-        button { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; }
+        button { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #2980b9; }
         .note-item, .file-item { border-bottom: 1px solid #eee; padding: 10px 0; display: flex; justify-content: space-between; align-items: center; }
         .btn-delete { background: #e74c3c; padding: 5px 10px; font-size: 12px; }
+        .btn-delete:hover { background: #c0392b; }
         
         /* Style tambahan untuk preview gambar */
         .preview-img { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 15px; border: 1px solid #ddd; }
@@ -71,7 +74,9 @@
         async function saveNote() {
             const title = document.getElementById('noteTitle').value;
             const content = document.getElementById('noteContent').value;
-            if(!title || !content) return alert('Isi semua field!');
+            if(!title || !content) {
+                return Swal.fire('Oops!', 'Isi semua field dulu ya.', 'warning');
+            }
             await fetch('/api/notes', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -80,13 +85,31 @@
             document.getElementById('noteTitle').value = '';
             document.getElementById('noteContent').value = '';
             loadNotes();
+            Swal.fire({
+                icon: 'success',
+                title: 'Tersimpan!',
+                showConfirmButton: false,
+                timer: 1500
+            });
         }
 
         async function deleteNote(id) {
-            if(confirm('Hapus?')) {
-                await fetch('/api/notes/' + id, { method: 'DELETE' });
-                loadNotes();
-            }
+            Swal.fire({
+                title: 'Hapus catatan?',
+                text: "Catatan ini akan hilang dari database!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#e74c3c',
+                cancelButtonColor: '#2c3e50',
+                confirmButtonText: 'Ya, Hapus!',
+                cancelButtonText: 'Batal'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await fetch('/api/notes/' + id, { method: 'DELETE' });
+                    loadNotes();
+                    Swal.fire('Terhapus!', 'Catatan sudah dibuang.', 'success');
+                }
+            });
         }
 
         // --- FITUR FILE & PREVIEW ---
@@ -96,7 +119,6 @@
             const container = document.getElementById('fileList');
             
             container.innerHTML = files.map(f => {
-                // Deteksi jika file adalah gambar
                 const isImage = /\.(jpe?g|png|gif|webp)$/i.test(f);
                 return `
                     <div class="file-item">
@@ -116,10 +138,22 @@
         }
 
         async function deleteFile(name) {
-            if(confirm('Hapus file?')) {
-                await fetch('/api/files/' + encodeURIComponent(name), { method: 'DELETE' });
-                loadFiles();
-            }
+            Swal.fire({
+                title: 'Hapus file ini?',
+                text: "File " + name + " akan dihapus permanen dari VPS!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#e74c3c',
+                cancelButtonColor: '#2c3e50',
+                confirmButtonText: 'Ya, Hapus!',
+                cancelButtonText: 'Batal'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await fetch('/api/files/' + encodeURIComponent(name), { method: 'DELETE' });
+                    loadFiles();
+                    Swal.fire('Berhasil!', 'File telah dihapus.', 'success');
+                }
+            });
         }
 
         window.onload = () => { loadNotes(); loadFiles(); };
