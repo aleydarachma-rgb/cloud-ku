@@ -16,6 +16,35 @@
         button:hover { background: #2980b9; }
         .note-item { border-bottom: 1px solid #eee; padding: 15px 0; }
         .note-item h4 { margin: 0; color: #e67e22; }
+    /* Media Query untuk HP */
+    @media (max-width: 768px) {
+       body {
+        flex-direction: column; /* Sidebar jadi di atas, bukan di samping */
+    }
+
+    .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        padding: 10px;
+        box-sizing: border-box;
+    }
+
+    .main-content {
+        margin-left: 0; /* Hilangkan jarak samping */
+        padding: 15px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .card {
+        padding: 15px;
+    }
+
+    h1 {
+        font-size: 20px; /* Ukuran tulisan diperkecil biar gak meluber */
+    }
+}
     </style>
 </head>
 <body>
