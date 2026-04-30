@@ -22,9 +22,14 @@
         .preview-img { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 15px; border: 1px solid #ddd; }
         .file-info { display: flex; align-items: center; }
 
-        /* Style Progress Bar */
+        /* Style Progress Bar Upload */
         #progressContainer { display: none; background: #eee; border-radius: 10px; margin-top: 10px; height: 10px; overflow: hidden; }
         #progressBar { background: #3498db; width: 0%; height: 100%; transition: width 0.2s; }
+
+        /* Style Disk Space Sidebar */
+        .disk-section { margin-top: 30px; font-size: 12px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; }
+        .disk-bar-bg { background: #34495e; border-radius: 5px; height: 8px; width: 100%; margin-top: 8px; overflow: hidden; }
+        #diskBar { background: #e67e22; height: 100%; width: 0%; transition: 1s ease-in-out; }
 
         @media (max-width: 768px) {
             body { flex-direction: column; }
@@ -37,22 +42,27 @@
     <div class="sidebar">
         <h2>Cloud-Ku</h2>
         <p>Server Status: <b style="color: #2ecc71;">Online</b></p>
-        <hr>
-        <a href="/" style="color: #ecf0f1; text-decoration: none;">Logout</a>
+        
+        <div class="disk-section">
+            <strong>Storage Usage</strong>
+            <p id="diskText" style="margin: 5px 0 0 0; color: #bdc3c7;">Checking...</p>
+            <div class="disk-bar-bg">
+                <div id="diskBar"></div>
+            </div>
+        </div>
+
+        <hr style="margin-top: 20px; border: 0.5px solid #3e4f5f;">
+        <a href="/" style="color: #ecf0f1; text-decoration: none; font-size: 14px;">Logout</a>
     </div>
 
     <div class="main-content">
         <h1>Dashboard System</h1>
 
         <div class="card">
-            <h2>Cloud Storage</h2>
+            <h2>Cloud Storage (IaaS)</h2>
             <input type="file" id="fileInput" required>
             <button onclick="uploadFile()">Upload to VPS</button>
-            
-            <div id="progressContainer">
-                <div id="progressBar"></div>
-            </div>
-            
+            <div id="progressContainer"><div id="progressBar"></div></div>
             <div id="fileList" style="margin-top: 20px;">Memuat file...</div>
         </div>
 
@@ -60,17 +70,30 @@
             <h2>Private Notes</h2>
             <input type="text" id="noteTitle" placeholder="Judul">
             <textarea id="noteContent" rows="3" placeholder="Isi catatan..."></textarea>
-            <button onclick="saveNote()">Simpan</button>
-            
+            <button onclick="saveNote()">Simpan ke Database</button>
             <hr>
             <input type="text" id="searchNote" placeholder="🔍 Cari judul catatan..." onkeyup="filterNotes()">
-            
             <div id="notesContainer" style="margin-top: 20px;">Memuat catatan...</div>
         </div>
     </div>
 
     <script>
-        // --- 1. FITUR SEARCH NOTES ---
+        // --- 1. DISK SPACE TRACKER ---
+        async function loadDiskSpace() {
+            try {
+                const res = await fetch('/api/disk-space');
+                const data = await res.json();
+                const used = (data.size - data.free).toFixed(2);
+                const percent = ((used / data.size) * 100).toFixed(1);
+                
+                document.getElementById('diskText').innerText = `${used} / ${data.size} GB (${percent}%)`;
+                document.getElementById('diskBar').style.width = percent + "%";
+            } catch (e) {
+                document.getElementById('diskText').innerText = "Gagal memuat data";
+            }
+        }
+
+        // --- 2. SEARCH NOTES ---
         function filterNotes() {
             const query = document.getElementById('searchNote').value.toLowerCase();
             const items = document.querySelectorAll('.note-item');
@@ -80,7 +103,7 @@
             });
         }
 
-        // --- 2. FITUR UPLOAD DENGAN PROGRESS BAR ---
+        // --- 3. UPLOAD FILE ---
         async function uploadFile() {
             const fileInput = document.getElementById('fileInput');
             if (fileInput.files.length === 0) return Swal.fire('Error', 'Pilih file dulu!', 'error');
@@ -94,7 +117,6 @@
             const progressBar = document.getElementById('progressBar');
 
             progressContainer.style.display = 'block';
-            
             xhr.upload.addEventListener('progress', (e) => {
                 if (e.lengthComputable) {
                     const percent = (e.loaded / e.total) * 100;
@@ -109,14 +131,14 @@
                     progressBar.style.width = '0%';
                     fileInput.value = '';
                     loadFiles();
+                    loadDiskSpace();
                 }
             };
-
             xhr.open('POST', '/upload', true);
             xhr.send(formData);
         }
 
-        // --- 3. FITUR CATATAN ---
+        // --- 4. LOAD DATA ---
         async function loadNotes() {
             const res = await fetch('/api/notes');
             const data = await res.json();
@@ -131,8 +153,7 @@
         async function saveNote() {
             const title = document.getElementById('noteTitle').value;
             const content = document.getElementById('noteContent').value;
-            if(!title || !content) return Swal.fire('Oops!', 'Isi semua field dulu ya.', 'warning');
-            
+            if(!title || !content) return Swal.fire('Oops!', 'Isi semua field!', 'warning');
             await fetch('/api/notes', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -141,43 +162,35 @@
             document.getElementById('noteTitle').value = '';
             document.getElementById('noteContent').value = '';
             loadNotes();
-            Swal.fire({ icon: 'success', title: 'Tersimpan!', showConfirmButton: false, timer: 1500 });
+            Swal.fire({ icon: 'success', title: 'Tersimpan!', showConfirmButton: false, timer: 1000 });
         }
 
         async function deleteNote(id) {
-            Swal.fire({
-                title: 'Hapus catatan?',
-                icon: 'warning',
+            const result = await Swal.fire({ 
+                title: 'Hapus catatan?', 
+                icon: 'warning', 
                 showCancelButton: true,
                 confirmButtonColor: '#e74c3c',
-                confirmButtonText: 'Ya, Hapus!'
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    await fetch('/api/notes/' + id, { method: 'DELETE' });
-                    loadNotes();
-                    Swal.fire('Terhapus!', 'Catatan sudah dibuang.', 'success');
-                }
+                confirmButtonText: 'Hapus!'
             });
+            if (result.isConfirmed) {
+                await fetch('/api/notes/' + id, { method: 'DELETE' });
+                loadNotes();
+                Swal.fire('Terhapus!', 'Catatan dihapus.', 'success');
+            }
         }
 
-        // --- 4. FITUR FILE & PREVIEW ---
         async function loadFiles() {
             const res = await fetch('/api/files');
             const files = await res.json();
             const container = document.getElementById('fileList');
-            
             container.innerHTML = files.map(f => {
                 const isImage = /\.(jpe?g|png|gif|webp)$/i.test(f);
                 return `
                     <div class="file-item">
                         <div class="file-info">
-                            ${isImage ? 
-                                `<img src="/uploads/${f}" class="preview-img" alt="preview">` : 
-                                `<div class="preview-img" style="display:flex;align-items:center;justify-content:center;background:#eee;font-size:10px;">FILE</div>`
-                            }
-                            <div>
-                                <a href="/uploads/${f}" target="_blank" style="text-decoration:none; color:#2c3e50; font-weight:600;">${f}</a>
-                            </div>
+                            ${isImage ? `<img src="/uploads/${f}" class="preview-img">` : `<div class="preview-img" style="display:flex;align-items:center;justify-content:center;background:#eee;font-size:10px;">FILE</div>`}
+                            <a href="/uploads/${f}" target="_blank" style="text-decoration:none; color:#2c3e50; font-weight:600;">${f}</a>
                         </div>
                         <button class="btn-delete" onclick="deleteFile('${f}')">Hapus</button>
                     </div>
@@ -186,22 +199,22 @@
         }
 
         async function deleteFile(name) {
-            Swal.fire({
-                title: 'Hapus file?',
-                icon: 'warning',
+            const result = await Swal.fire({ 
+                title: 'Hapus file?', 
+                icon: 'warning', 
                 showCancelButton: true,
                 confirmButtonColor: '#e74c3c',
                 confirmButtonText: 'Hapus!'
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    await fetch('/api/files/' + encodeURIComponent(name), { method: 'DELETE' });
-                    loadFiles();
-                    Swal.fire('Berhasil!', 'File dihapus.', 'success');
-                }
             });
+            if (result.isConfirmed) {
+                await fetch('/api/files/' + encodeURIComponent(name), { method: 'DELETE' });
+                loadFiles();
+                loadDiskSpace();
+            }
         }
 
-        window.onload = () => { loadNotes(); loadFiles(); };
+        // Panggil semua saat halaman dibuka
+        window.onload = () => { loadNotes(); loadFiles(); loadDiskSpace(); };
     </script>
 </body>
 </html>

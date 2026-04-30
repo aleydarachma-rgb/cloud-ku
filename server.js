@@ -113,4 +113,18 @@ app.delete('/api/files/:name', (req, res) => {
     });
 });
 
+const checkDiskSpace = require('check-disk-space').default;
+
+app.get('/api/disk-space', async (req, res) => {
+    try {
+        const diskSpace = await checkDiskSpace('/'); // Cek root folder
+        res.json({
+            free: (diskSpace.free / 1024 / 1024 / 1024).toFixed(2), // Dalam GB
+            size: (diskSpace.size / 1024 / 1024 / 1024).toFixed(2)  // Dalam GB
+        });
+    } catch (err) {
+        res.status(500).send("Gagal cek storage");
+    }
+});
+
 app.listen(3000, () => console.log('Server running on port 3000'));
