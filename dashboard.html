@@ -18,9 +18,13 @@
         .btn-delete { background: #e74c3c; padding: 5px 10px; font-size: 12px; }
         .btn-delete:hover { background: #c0392b; }
         
-        /* Style tambahan untuk preview gambar */
+        /* Style Preview Gambar */
         .preview-img { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 15px; border: 1px solid #ddd; }
         .file-info { display: flex; align-items: center; }
+
+        /* Style Progress Bar */
+        #progressContainer { display: none; background: #eee; border-radius: 10px; margin-top: 10px; height: 10px; overflow: hidden; }
+        #progressBar { background: #3498db; width: 0%; height: 100%; transition: width 0.2s; }
 
         @media (max-width: 768px) {
             body { flex-direction: column; }
@@ -42,10 +46,13 @@
 
         <div class="card">
             <h2>Cloud Storage</h2>
-            <form action="/upload" method="POST" enctype="multipart/form-data">
-                <input type="file" name="myFile" required>
-                <button type="submit">Upload to VPS</button>
-            </form>
+            <input type="file" id="fileInput" required>
+            <button onclick="uploadFile()">Upload to VPS</button>
+            
+            <div id="progressContainer">
+                <div id="progressBar"></div>
+            </div>
+            
             <div id="fileList" style="margin-top: 20px;">Memuat file...</div>
         </div>
 
@@ -54,12 +61,62 @@
             <input type="text" id="noteTitle" placeholder="Judul">
             <textarea id="noteContent" rows="3" placeholder="Isi catatan..."></textarea>
             <button onclick="saveNote()">Simpan</button>
+            
+            <hr>
+            <input type="text" id="searchNote" placeholder="🔍 Cari judul catatan..." onkeyup="filterNotes()">
+            
             <div id="notesContainer" style="margin-top: 20px;">Memuat catatan...</div>
         </div>
     </div>
 
     <script>
-        // --- FITUR CATATAN ---
+        // --- 1. FITUR SEARCH NOTES ---
+        function filterNotes() {
+            const query = document.getElementById('searchNote').value.toLowerCase();
+            const items = document.querySelectorAll('.note-item');
+            items.forEach(item => {
+                const title = item.querySelector('b').innerText.toLowerCase();
+                item.style.display = title.includes(query) ? "flex" : "none";
+            });
+        }
+
+        // --- 2. FITUR UPLOAD DENGAN PROGRESS BAR ---
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            if (fileInput.files.length === 0) return Swal.fire('Error', 'Pilih file dulu!', 'error');
+
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('myFile', file);
+
+            const xhr = new XMLHttpRequest();
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+
+            progressContainer.style.display = 'block';
+            
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const percent = (e.loaded / e.total) * 100;
+                    progressBar.style.width = percent + '%';
+                }
+            });
+
+            xhr.onreadystatechange = () => {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    Swal.fire('Berhasil!', 'File terupload ke VPS.', 'success');
+                    progressContainer.style.display = 'none';
+                    progressBar.style.width = '0%';
+                    fileInput.value = '';
+                    loadFiles();
+                }
+            };
+
+            xhr.open('POST', '/upload', true);
+            xhr.send(formData);
+        }
+
+        // --- 3. FITUR CATATAN ---
         async function loadNotes() {
             const res = await fetch('/api/notes');
             const data = await res.json();
@@ -74,9 +131,8 @@
         async function saveNote() {
             const title = document.getElementById('noteTitle').value;
             const content = document.getElementById('noteContent').value;
-            if(!title || !content) {
-                return Swal.fire('Oops!', 'Isi semua field dulu ya.', 'warning');
-            }
+            if(!title || !content) return Swal.fire('Oops!', 'Isi semua field dulu ya.', 'warning');
+            
             await fetch('/api/notes', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -85,24 +141,16 @@
             document.getElementById('noteTitle').value = '';
             document.getElementById('noteContent').value = '';
             loadNotes();
-            Swal.fire({
-                icon: 'success',
-                title: 'Tersimpan!',
-                showConfirmButton: false,
-                timer: 1500
-            });
+            Swal.fire({ icon: 'success', title: 'Tersimpan!', showConfirmButton: false, timer: 1500 });
         }
 
         async function deleteNote(id) {
             Swal.fire({
                 title: 'Hapus catatan?',
-                text: "Catatan ini akan hilang dari database!",
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#e74c3c',
-                cancelButtonColor: '#2c3e50',
-                confirmButtonText: 'Ya, Hapus!',
-                cancelButtonText: 'Batal'
+                confirmButtonText: 'Ya, Hapus!'
             }).then(async (result) => {
                 if (result.isConfirmed) {
                     await fetch('/api/notes/' + id, { method: 'DELETE' });
@@ -112,7 +160,7 @@
             });
         }
 
-        // --- FITUR FILE & PREVIEW ---
+        // --- 4. FITUR FILE & PREVIEW ---
         async function loadFiles() {
             const res = await fetch('/api/files');
             const files = await res.json();
@@ -139,19 +187,16 @@
 
         async function deleteFile(name) {
             Swal.fire({
-                title: 'Hapus file ini?',
-                text: "File " + name + " akan dihapus permanen dari VPS!",
+                title: 'Hapus file?',
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#e74c3c',
-                cancelButtonColor: '#2c3e50',
-                confirmButtonText: 'Ya, Hapus!',
-                cancelButtonText: 'Batal'
+                confirmButtonText: 'Hapus!'
             }).then(async (result) => {
                 if (result.isConfirmed) {
                     await fetch('/api/files/' + encodeURIComponent(name), { method: 'DELETE' });
                     loadFiles();
-                    Swal.fire('Berhasil!', 'File telah dihapus.', 'success');
+                    Swal.fire('Berhasil!', 'File dihapus.', 'success');
                 }
             });
         }
