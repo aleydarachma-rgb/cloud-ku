@@ -1,6 +1,6 @@
 require('dotenv').config(); 
 const express = require('express');
-const mysql = require('mysql2'); // <-- Pastikan baris ini ADA
+const mysql = require('mysql2'); // <--- PASTIKAN BARIS INI ADA
 const bodyParser = require('body-parser');
 const session = require('express-session');
 const multer = require('multer');
@@ -18,7 +18,6 @@ const db = mysql.createConnection({
     database: 'db_cloudku'
 });
 
-// Cek Koneksi di Console
 db.connect((err) => {
     if (err) {
         console.error('Gagal koneksi ke MySQL:', err.message);
@@ -50,8 +49,7 @@ const upload = multer({ storage: storage });
 
 if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
 
-// --- 4. Routes (Pastikan semua pakai 'db.query') ---
-
+// --- 4. Routes ---
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'login.html'));
 });
