@@ -1,6 +1,6 @@
 require('dotenv').config(); 
 const express = require('express');
-const mysql = require('mysql2'); // <--- PASTIKAN BARIS INI ADA
+const mysql = require('mysql2'); 
 const bodyParser = require('body-parser');
 const session = require('express-session');
 const multer = require('multer');
@@ -10,17 +10,19 @@ const checkDiskSpace = require('check-disk-space').default;
 
 const app = express();
 
-// --- 1. Database Connection (Satu Koneksi Saja) ---
+// --- 1. Database Connection (Disesuaikan untuk Docker) ---
 const db = mysql.createConnection({
-    host: 'localhost',
+    host: '172.17.0.1', // <--- PENTING: Pakai IP Gateway Docker agar bisa akses MySQL di VPS
     user: 'root',
     password: process.env.DB_PASSWORD, 
-    database: 'db_cloudku'
+    database: 'db_cloudku',
+    connectTimeout: 10000
 });
 
 db.connect((err) => {
     if (err) {
         console.error('Gagal koneksi ke MySQL:', err.message);
+        console.log('TIPS: Pastikan user root MySQL kamu diizinkan akses dari host % atau 172.17.0.1');
     } else {
         console.log('Terhubung ke MySQL: db_cloudku');
     }
@@ -36,7 +38,7 @@ app.use(session({
 }));
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use(express.static('public')); 
+app.use(express.static(path.join(__dirname))); // Mengizinkan akses dashboard.html dkk
 
 // --- 3. Multer ---
 const storage = multer.diskStorage({
@@ -69,6 +71,7 @@ app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'dashboard.html'));
 });
 
+// Fitur Simpan Catatan
 app.post('/api/notes', (req, res) => {
     const { title, content } = req.body;
     db.query("INSERT INTO notes (title, content) VALUES (?, ?)", [title, content], (err) => {
@@ -77,8 +80,11 @@ app.post('/api/notes', (req, res) => {
     });
 });
 
+// Fitur Ambil & Cari Catatan (DIPERBAIKI)
 app.get('/api/notes', (req, res) => {
-    db.query("SELECT * FROM notes ORDER BY created_at DESC", (err, results) => {
+    const searchTerm = req.query.search || '';
+    const query = "SELECT * FROM notes WHERE title LIKE ? OR content LIKE ? ORDER BY created_at DESC";
+    db.query(query, [`%${searchTerm}%`, `%${searchTerm}%`], (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
     });
