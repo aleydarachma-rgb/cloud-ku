@@ -12,7 +12,7 @@ const app = express();
 
 // --- 1. Database Connection (Disesuaikan untuk Docker) ---
 const db = mysql.createConnection({
-    host: '172.17.0.1', // <--- PENTING: Pakai IP Gateway Docker agar bisa akses MySQL di VPS
+    host: 'db', // <--- PENTING: Pakai IP Gateway Docker agar bisa akses MySQL di VPS
     user: 'root',
     password: process.env.DB_PASSWORD, 
     database: 'db_cloudku',
